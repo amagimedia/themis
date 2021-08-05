@@ -1,0 +1,12 @@
+{
+    "allowed_ports": [
+        80,
+        443
+    ],
+    "allow_port_ranges": [
+        {
+            "from": 5000,
+            "to": 5001
+        }
+    ]
+}

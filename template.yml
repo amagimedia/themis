@@ -1,0 +1,168 @@
+AWSTemplateFormatVersion : '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: A SAM template for deploying Themis.
+Parameters:
+  EnableAutoFix:
+    Description: 'Enable automated fix'
+    Type: String
+    Default: false
+    AllowedValues:
+      - true
+      - false
+
+Resources:
+  ThemisLambda:
+    Type: AWS::Serverless::Function
+    Properties:
+      #FunctionName: themis
+      Handler: handler.handle
+      Runtime: python3.7
+      CodeUri: .
+      Description: "Themis enforces security guidelines for a aws account"
+      MemorySize: 128
+      Timeout: 180 # 3 minutes
+      Policies:
+        - ReadOnlyAccess
+        - Version: "2012-10-17"
+          Statement:
+          - Effect: "Allow"
+            Action:
+              - "lambda:InvokeFunction"
+            Resource: '*'
+        - Version: "2012-10-17"
+          Statement:
+          - Effect: "Allow"
+            Action:
+              - "config:*"
+            Resource: '*'
+        - Version: "2012-10-17"
+          Statement:
+          - Effect: "Allow"
+            Action:
+              - "ses:SendEmail"
+              - "ses:SendRawEmail"
+            Resource: '*'
+
+  ConfigPermissionToCallLambda:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !GetAtt ThemisLambda.Arn
+      Action: "lambda:InvokeFunction"
+      Principal: "config.amazonaws.com"
+    DependsOn: ThemisLambda
+
+  SsmPermissionToCallLambda:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !GetAtt ThemisLambda.Arn
+      Action: "lambda:InvokeFunction"
+      Principal: "ssm.amazonaws.com"
+    DependsOn: ThemisLambda
+
+  SsmRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - ssm.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      Path: /
+      Policies:
+        - PolicyName: ThemisSsmPolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - "lambda:InvokeAsync"
+                  - "lambda:InvokeFunction"
+                Resource: !GetAtt ThemisLambda.Arn
+    DependsOn: ThemisLambda
+
+######### START: bad_ingress ##########################
+  BadIngressRule:
+    Type: AWS::Config::ConfigRule
+    Properties:
+      #ConfigRuleName: BadIngressRule
+      InputParameters:
+        ThemisEvaluatorModule: bad_ingress
+      Scope:
+        ComplianceResourceId: "sg-00663331cf282446e"
+        ComplianceResourceTypes:
+          - "AWS::EC2::SecurityGroup"
+      Source:
+        Owner: "CUSTOM_LAMBDA"
+        SourceDetails:
+          -
+            EventSource: "aws.config"
+            MessageType: "ConfigurationItemChangeNotification"
+          -
+            EventSource: "aws.config"
+            MessageType: "OversizedConfigurationItemChangeNotification"
+        SourceIdentifier: !GetAtt ThemisLambda.Arn
+    DependsOn: ThemisLambda
+
+  BadIngressDocument:
+    Type: AWS::SSM::Document
+    Properties:
+      Content:
+        schemaVersion: '0.3'
+        assumeRole: !GetAtt SsmRole.Arn
+        description: "calls themis lambda to fix bad_ingress"
+        parameters:
+          ResourceID:
+            type: String
+            description: id of resource to fix
+            #default: null
+          AutomationAssumeRole:
+            type: String
+            description: "required for deploying"
+        mainSteps:
+        - action: "aws:invokeLambdaFunction"
+          name: "invokeThemisLambda"
+          inputs:
+            InvocationType: RequestResponse
+            FunctionName: !Ref ThemisLambda
+            InputPayload:
+              ResourceID: "{{ResourceID}}"
+              ThemisFixerModule: bad_ingress
+      DocumentType: Automation
+      #Name: BadIngressDocument
+      TargetType: '/AWS::Lambda::Function'
+    DependsOn: BadIngressRule
+
+
+  BadIngressRemediation:
+      Type: "AWS::Config::RemediationConfiguration"
+      Properties:
+          Automatic: !Ref EnableAutoFix
+          ConfigRuleName: !Ref BadIngressRule
+          MaximumAutomaticAttempts: 1
+          RetryAttemptSeconds: 60
+          Parameters:
+              AutomationAssumeRole:
+                StaticValue:
+                    Values:
+                      - !GetAtt SsmRole.Arn
+              ResourceID:
+                ResourceValue:
+                  Value: RESOURCE_ID
+          TargetId: !Ref BadIngressDocument
+          TargetType: "SSM_DOCUMENT"
+          #TargetVersion: "1"
+      DependsOn: BadIngressDocument
+
+######### END: bad_ingress ##########################
+
+
+Outputs:
+  themis:
+    Description: "themis lambda function arn"
+    Value: !GetAtt ThemisLambda.Arn
+    Export:
+      Name: themisArn
