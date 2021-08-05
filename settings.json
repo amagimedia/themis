@@ -1,0 +1,8 @@
+{
+    "themis": {
+        "notification_sender_email": "themis@themis.com",
+        "notification_reciever_emails": [
+            "themis@themis.com"
+        ]
+    }
+}
