@@ -51,10 +51,10 @@ Example: If we have two aws account with id (12345 and 67890). when we add 12345
 `pipenv lock -r > requirements.txt`
 
 
-`sam deploy -t template.yml --region us-east-1  --config-file config.toml --profile default --guided`
+`sam deploy -t template.yml --region us-east-1  --config-file samconfig.toml --profile default --guided`
 
 EnableAutoFix is false by default. For enabling auto fix use the below deployment command:
-`sam deploy -t template.yml --region us-east-1  --config-file config.toml --profile default --guided --parameter-overrides EnableAutoFix=true`
+`sam deploy -t template.yml --region us-east-1  --config-file samconfig.toml --profile default --guided --parameter-overrides EnableAutoFix=true`
 
 
 # RULES:

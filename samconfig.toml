@@ -4,7 +4,9 @@ version = 0.1
 [default.deploy.parameters]
 stack_name = "Themis"
 s3_bucket = ""
-s3_prefix = "themis"
+s3_prefix = "Themis"
 region = "us-east-1"
 confirm_changeset = true
 capabilities = "CAPABILITY_NAMED_IAM"
+profile = "default"
+parameter_overrides = "EnableAutoFix=\"false\""

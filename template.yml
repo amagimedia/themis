@@ -1,6 +1,6 @@
 AWSTemplateFormatVersion : '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
-Description: A SAM template for deploying Themis.
+Description: Rule based AWS resource config management
 Parameters:
   EnableAutoFix:
     Description: 'Enable automated fix'
@@ -41,6 +41,8 @@ Resources:
             Action:
               - "ses:SendEmail"
               - "ses:SendRawEmail"
+              - "ec2:RevokeSecurityGroupIngress"
+              - "ec2:AuthorizeSecurityGroupIngress"
             Resource: '*'
 
   ConfigPermissionToCallLambda:
@@ -92,7 +94,7 @@ Resources:
       InputParameters:
         ThemisEvaluatorModule: bad_ingress
       Scope:
-        ComplianceResourceId: "sg-00663331cf282446e"
+        #ComplianceResourceId: "sg-4bd1c8f2"
         ComplianceResourceTypes:
           - "AWS::EC2::SecurityGroup"
       Source:
